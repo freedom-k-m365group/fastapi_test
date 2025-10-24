@@ -1,4 +1,6 @@
 import os
+import re
+import json
 from typing import Any
 from sqlmodel import Session
 from dotenv import load_dotenv
@@ -47,7 +49,8 @@ def analyze_name_and_create_hero(hero_name: str) -> SuperHero:
     weaknesses,
     strengths,
     description.
-    NOTE: Respond ONLY with the JSON.
+
+    NOTE: Do NOT include any explanation or extra text. Only output JSON.
     """
 
     message = HumanMessage(content=prompt)
@@ -86,10 +89,23 @@ def parse_hero_attributes(llm_response: str | Any = None) -> dict:
         dict: Parsed hero attributes suitable for SuperHero creation.
     """
 
-    import json
+    # Remove markdown code fences like ```json or ```
+    cleaned_response = re.sub(
+        r"(?s)```.*?\n", "", llm_response)  # Remove opening ```
+    cleaned_response = re.sub(
+        r"```", "", cleaned_response)  # Remove closing ```
+    cleaned_response = cleaned_response.strip()
+
+    # Extract JSON object using regex to find {...}
+    json_match = re.search(r"\{.*\}", cleaned_response, re.DOTALL)
+
+    if not json_match:
+        raise ValueError("No JSON object found in LLM response")
+
+    json_str = json_match.group(0)
+
     try:
-        # Assuming the LLM will output JSON with attributes
-        attributes = json.loads(llm_response)
+        attributes = json.loads(json_str)
         return attributes
-    except json.JSONDecodeError:
-        raise ValueError("Failed to parse attributes JSON from LLM response")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON: {str(e)}")
