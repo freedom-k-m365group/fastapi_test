@@ -1,9 +1,5 @@
-import os
 from typing import Optional
-from dotenv import load_dotenv
 from sqlmodel import SQLModel, Field, create_engine
-
-load_dotenv()
 
 
 class SuperHero(SQLModel, table=True):
@@ -43,12 +39,8 @@ class SuperHero(SQLModel, table=True):
     description: Optional[str] = None
 
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+sqlite_file_name = "database.db"
+sqlite_url = f"sqlite:///{sqlite_file_name}"
 
 connect_args = {"check_same_thread": False}
-engine = create_engine(DATABASE_URL, echo=True,  # type: ignore
-                       connect_args=connect_args)
-
-
-def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)
