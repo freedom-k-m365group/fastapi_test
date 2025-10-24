@@ -1,5 +1,9 @@
+import os
 from typing import Optional
-from sqlmodel import SQLModel, Field
+from dotenv import load_dotenv
+from sqlmodel import SQLModel, Field, create_engine
+
+load_dotenv()
 
 
 class SuperHero(SQLModel, table=True):
@@ -37,3 +41,10 @@ class SuperHero(SQLModel, table=True):
 
     # Additional notes
     description: Optional[str] = None
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+connect_args = {"check_same_thread": False}
+engine = create_engine(DATABASE_URL, echo=True,  # type: ignore
+                       connect_args=connect_args)
