@@ -3,6 +3,33 @@ from sqlmodel import SQLModel, Field, create_engine
 
 
 class SuperHero(SQLModel, table=True):
+    """
+    SQLModel representing a superhero with detailed attributes.
+
+    Attributes:
+        id (Optional[int]): Primary key of the hero.
+        hero_name (str): Alias of the superhero; indexed for quick lookup.
+        real_name (Optional[str]): Civilian or real name.
+        age (Optional[int]): Age of the hero.
+        origin (Optional[str]): Place or origin story of the hero.
+
+        height_cm (Optional[float]): Height in centimeters.
+        weight_kg (Optional[float]): Weight in kilograms.
+        eye_color (Optional[str]): Eye color description.
+        hair_color (Optional[str]): Hair color description.
+
+        powers (Optional[str]): Comma-separated powers list.
+        strength_level (Optional[int]): Strength value (0-100 scale).
+        speed_level (Optional[int]): Speed value (0-100 scale).
+        durability_level (Optional[int]): Durability value (0-100 scale).
+        intelligence_level (Optional[int]): Intelligence value (0-100 scale).
+
+        weaknesses (Optional[str]): Known weaknesses.
+        strengths (Optional[str]): Known strengths or specialties.
+
+        description (Optional[str]): Free text description or additional notes.
+    """
+
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # Basic Info
