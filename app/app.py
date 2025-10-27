@@ -4,11 +4,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 from sqlmodel import SQLModel, Session, select
-from .models import SuperHero, ComicSummary, SuperVilian
+from .models import SuperHero, ComicSummary, SuperVillian
 from .utils import (
     analyze_name_and_create_hero,
     generate_comic_summary,
-    analyze_name_and_create_vilian,
+    analyze_name_and_create_villian,
 )
 
 
@@ -32,7 +32,7 @@ class ComicRequest(BaseModel):
     """
 
     hero_ids: List[int]
-    vilian_ids: List[int]
+    villian_ids: List[int]
 
 
 @asynccontextmanager
@@ -69,18 +69,18 @@ def read_heroes():
         return heroes
 
 
-@app.get("/vilians/")
-def read_vilians():
+@app.get("/villians/")
+def read_villians():
     """
-    Retrieve all supervilians from the database.
+    Retrieve all supervillians from the database.
 
     Returns:
-        List of SuperVilian instances representing all stored heroes.
+        List of SuperVillian instances representing all stored heroes.
     """
 
     with Session(engine) as session:
-        vilians = session.exec(select(SuperVilian)).all()
-        return vilians
+        villians = session.exec(select(SuperVillian)).all()
+        return villians
 
 
 @app.post("/heroes/")
@@ -102,24 +102,24 @@ def create_hero(request: HeroRequest):
     return super_hero
 
 
-@app.post("/vilians/")
-def create_vilian(request: HeroRequest):
+@app.post("/villians/")
+def create_villian(request: HeroRequest):
     """
-    Create a supervilian by analyzing the vilian name with AI
+    Create a supervillian by analyzing the villian name with AI
     and saving the result.
 
     Args:
         request (HeroRequest):
-        The vilian creation request containing the vilian name.
+        The villian creation request containing the villian name.
 
     Returns:
-        SuperVilian: The created SuperVilian instance with
+        SuperVillian: The created SuperVillian instance with
         generated attributes.
     """
 
-    super_vilian = analyze_name_and_create_vilian(request.hero_name)
+    super_villian = analyze_name_and_create_villian(request.hero_name)
 
-    return super_vilian
+    return super_villian
 
 
 @app.post("/comics/")
@@ -137,9 +137,11 @@ def create_comic(request: ComicRequest):
     """
 
     # Generate the summary using LangChain agent
-    summary = generate_comic_summary(request.hero_ids, request.vilian_ids)
+    summary = generate_comic_summary.delay(request.hero_ids,  # type: ignore
+                                           request.villian_ids)
 
-    return summary
+    return {"task_id": summary.id}
+    # return summary
 
 
 @app.get("/comics/")
