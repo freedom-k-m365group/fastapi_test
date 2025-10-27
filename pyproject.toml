@@ -6,7 +6,7 @@ description = "Test Project"
 authors = [
     {name = "freedom-k-m365group",email = "freedom.k@m365connect.com"}
 ]
-requires-python = ">=3.14,<4.0.0"
+requires-python = ">=3.12,<4.0.0"
 
 dependencies = [
     "fastapi[standard] (>=0.120.0,<0.121.0)",
