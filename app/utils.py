@@ -274,8 +274,9 @@ def save_comic(hero_ids: List[int],
 
 
 @celery.task(bind=True)
-def generate_comic_summary(self, hero_ids: List[int],
-                           villian_ids: List[int]) -> dict[str, Any] | Any:
+def generate_comic_summary(self,
+                           hero_ids: List[int],
+                           villian_ids: List[int]) -> str:
     """
     Use a LangChain tool-calling agent to fetch hero and villian details
     and generate a comic book plot summary.
@@ -323,7 +324,7 @@ def generate_comic_summary(self, hero_ids: List[int],
         {','.join(map(str, villian_ids))}""")
 
     result = agent.invoke({"messages": [{"role": "user",
-                                        "content": input_messages}]})
+                                         "content": input_messages}]})
 
     final_message = result["messages"][-1]
     if (isinstance(final_message.content, list) and

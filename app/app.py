@@ -1,4 +1,6 @@
+import socketio
 from typing import List
+from .socketio import sio
 from .models import engine
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -48,11 +50,17 @@ async def lifespan(app: FastAPI):
 
     # Startup code: create tables
     SQLModel.metadata.create_all(engine)
+    print("FastAPI + Socket.IO started")
     yield
     # Shutdown code (optional)
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+socketio_app = socketio.ASGIApp(sio, app)
+
+app.mount("/socket.io", socketio_app)
 
 
 @app.get("/heroes/")
@@ -137,11 +145,12 @@ def create_comic(request: ComicRequest):
     """
 
     # Generate the summary using LangChain agent
-    summary = generate_comic_summary.delay(request.hero_ids,  # type: ignore
-                                           request.villian_ids)
+    summary = generate_comic_summary.delay(  # type: ignore
+        request.hero_ids,
+        request.villian_ids)
 
-    return {"task_id": summary.id}
-    # return summary
+    # return {"task_id": summary.id}
+    return summary
 
 
 @app.get("/comics/")
@@ -156,3 +165,24 @@ def read_comics():
     with Session(engine) as session:
         comics = session.exec(select(ComicSummary)).all()
         return comics
+
+
+@sio.event
+async def connect(sid, environ):
+    print(f"Client {sid} connected")
+    await sio.emit('message', {'data': 'Welcome to the server!'}, to=sid)
+
+
+@sio.event
+async def join_task(sid, data):
+    task_id = data.get('task_id')
+    if task_id:
+        await sio.enter_room(sid, task_id)
+        print(f"Client {sid} joined room '{task_id}'")
+        # Confirm join
+        await sio.emit('joined', {'task_id': task_id}, to=sid)
+
+
+@sio.event
+async def disconnect(sid):
+    print(f"Client {sid} disconnected")
