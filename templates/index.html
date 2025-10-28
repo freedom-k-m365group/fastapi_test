@@ -1,0 +1,55 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Superhero API Tester</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="/static/scripts.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Superhero API Tester</h1>
+
+      <div class="section">
+        <h2>Heroes</h2>
+        <form id="create-hero-form">
+          <input type="text" id="hero-name" placeholder="Hero Name" required />
+          <button type="submit">Create Hero</button>
+        </form>
+        <div id="hero-status"></div>
+        <ul id="heroes-list"></ul>
+      </div>
+
+      <div class="section">
+        <h2>Villains</h2>
+        <form id="create-villain-form">
+          <input
+            type="text"
+            id="villain-name"
+            placeholder="Villain Name"
+            required
+          />
+          <button type="submit">Create Villain</button>
+        </form>
+        <div id="villain-status"></div>
+        <ul id="villains-list"></ul>
+      </div>
+
+      <div class="section">
+        <h2>Comics</h2>
+        <form id="create-comic-form">
+          <label for="hero-ids">Select Heroes:</label>
+          <select id="hero-ids" multiple class="multi-select"></select>
+          <label for="villian-ids">Select Villains:</label>
+          <select id="villian-ids" multiple class="multi-select"></select>
+          <button type="submit">Generate Comic</button>
+        </form>
+        <div id="comic-status"></div>
+        <ul id="comics-list"></ul>
+      </div>
+    </div>
+  </body>
+</html>
