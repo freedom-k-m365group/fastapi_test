@@ -9,11 +9,11 @@ from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import SQLModel, Session, select
 from fastapi.templating import Jinja2Templates
-from .models import SuperHero, ComicSummary, SuperVillian
+from .models import SuperHero, ComicSummary, SuperVillain
 from .utils import (
     analyze_name_and_create_hero,
     generate_comic_summary,
-    analyze_name_and_create_villian,
+    analyze_name_and_create_villain,
 )
 
 
@@ -37,7 +37,7 @@ class ComicRequest(BaseModel):
     """
 
     hero_ids: List[int]
-    villian_ids: List[int]
+    villain_ids: List[int]
 
 
 @asynccontextmanager
@@ -80,18 +80,18 @@ def read_heroes():
         return heroes
 
 
-@app.get("/villians/")
-def read_villians():
+@app.get("/villains/")
+def read_villains():
     """
-    Retrieve all supervillians from the database.
+    Retrieve all supervillains from the database.
 
     Returns:
-        List of SuperVillian instances representing all stored heroes.
+        List of SuperVillain instances representing all stored heroes.
     """
 
     with Session(engine) as session:
-        villians = session.exec(select(SuperVillian)).all()
-        return villians
+        villains = session.exec(select(SuperVillain)).all()
+        return villains
 
 
 @app.post("/heroes/")
@@ -113,24 +113,24 @@ def create_hero(request: HeroRequest):
     return super_hero
 
 
-@app.post("/villians/")
-def create_villian(request: HeroRequest):
+@app.post("/villains/")
+def create_villain(request: HeroRequest):
     """
-    Create a supervillian by analyzing the villian name with AI
+    Create a supervillain by analyzing the villain name with AI
     and saving the result.
 
     Args:
         request (HeroRequest):
-        The villian creation request containing the villian name.
+        The villain creation request containing the villain name.
 
     Returns:
-        SuperVillian: The created SuperVillian instance with
+        SuperVillain: The created SuperVillain instance with
         generated attributes.
     """
 
-    super_villian = analyze_name_and_create_villian(request.hero_name)
+    super_villain = analyze_name_and_create_villain(request.hero_name)
 
-    return super_villian
+    return super_villain
 
 
 @app.post("/comics/")
@@ -150,7 +150,7 @@ def create_comic(request: ComicRequest):
     # Generate the summary using LangChain agent
     summary = generate_comic_summary.delay(  # type: ignore
         request.hero_ids,
-        request.villian_ids)
+        request.villain_ids)
 
     return {"task_id": summary.id}
     # return summary

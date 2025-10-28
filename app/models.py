@@ -66,13 +66,13 @@ class SuperHero(SQLModel, table=True):
     description: Optional[str] = None
 
 
-class SuperVillian(SQLModel, table=True):
+class SuperVillain(SQLModel, table=True):
     """
-    SQLModel representing a supervillian with detailed attributes.
+    SQLModel representing a supervillain with detailed attributes.
 
     Attributes:
         id (Optional[int]): Primary key of the hero.
-        villian_name (str): Alias of the supervillian; indexed for quick
+        villain_name (str): Alias of the supervillain; indexed for quick
         lookup. real_name (Optional[str]): Civillian or real name.
         age (Optional[int]): Age of the hero.
         origin (Optional[str]): Place or origin story of the hero.
@@ -97,7 +97,7 @@ class SuperVillian(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # Basic Info
-    villian_name: str = Field(index=True)
+    villain_name: str = Field(index=True)
     real_name: Optional[str] = None
     age: Optional[int] = None
     origin: Optional[str] = None
@@ -142,7 +142,7 @@ class ComicSummary(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     hero_ids: str
-    villian_ids: str
+    villain_ids: str
     summary: str
 
 

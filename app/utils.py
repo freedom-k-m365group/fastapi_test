@@ -14,7 +14,7 @@ from langchain.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 from celery.exceptions import MaxRetriesExceededError
 from langchain_google_genai import ChatGoogleGenerativeAI
-from .models import engine, SuperHero, ComicSummary, SuperVillian
+from .models import engine, SuperHero, ComicSummary, SuperVillain
 
 load_dotenv()
 
@@ -89,26 +89,26 @@ def analyze_name_and_create_hero(hero_name: str) -> SuperHero:
     return super_hero
 
 
-def analyze_name_and_create_villian(villian_name: str) -> SuperVillian:
+def analyze_name_and_create_villain(villain_name: str) -> SuperVillain:
     """
-    Generate hero attributes by prompting Gemini AI with the hero's name,
-    parse the response, save the hero to the database,
-    and return the created hero.
+    Generate villain attributes by prompting Gemini AI with the villain's name,
+    parse the response, save the villain to the database,
+    and return the created villain.
 
     Args:
-        villian_name (str): Name of the superhero.
+        villain_name (str): Name of the supervillain.
 
     Raises:
         HTTPException: If parsing the AI response fails.
 
     Returns:
-        SuperHero: The newly created SuperHero instance.
+        SuperVillain: The newly created SuperVillain instance.
     """
 
     prompt = f"""
-    Here is a superhero name '{villian_name}',
-    Create a JSON object describing the hero's key attributes:
-    villian_name,
+    Here is a supervillain name '{villain_name}',
+    Create a JSON object describing the villain's key attributes:
+    villain_name,
     real_name,
     age, origin,
     height_cm,
@@ -138,14 +138,14 @@ def analyze_name_and_create_villian(villian_name: str) -> SuperVillian:
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    super_villian = SuperVillian(**attributes)
+    super_villain = SuperVillain(**attributes)
 
     with Session(engine) as session:
-        session.add(super_villian)
+        session.add(super_villain)
         session.commit()
-        session.refresh(super_villian)
+        session.refresh(super_villain)
 
-    return super_villian
+    return super_villain
 
 
 def parse_attributes(llm_response: str | Any = None) -> dict:
@@ -217,12 +217,12 @@ def find_heroes_details(hero_ids_str: str) -> str:
 
 
 @tool
-def find_villians_details(villian_ids_str: str) -> str:
+def find_villains_details(villain_ids_str: str) -> str:
     """
-    LangChain tool to find supervillian details by their IDs.
+    LangChain tool to find supervillain details by their IDs.
 
     Args:
-        villian_ids_str (str): Comma-separated string of villian IDs
+        villain_ids_str (str): Comma-separated string of villain IDs
         (e.g., "1,2,3").
 
     Returns:
@@ -230,29 +230,29 @@ def find_villians_details(villian_ids_str: str) -> str:
     """
 
     try:
-        villian_ids = [int(id.strip())
-                       for id in villian_ids_str.split(',') if id.strip()]
+        villain_ids = [int(id.strip())
+                       for id in villain_ids_str.split(',') if id.strip()]
     except ValueError:
         return json.dumps({"error": "Invalid hero IDs format."
                            "Use comma-separated integers."})
 
     with Session(engine) as session:
-        statement = select(SuperVillian).where(
-            SuperVillian.id.in_(villian_ids))  # type: ignore
-        villians = session.exec(statement).all()
+        statement = select(SuperVillain).where(
+            SuperVillain.id.in_(villain_ids))  # type: ignore
+        villains = session.exec(statement).all()
 
-    if not villians:
+    if not villains:
         return json.dumps({"error":
-                           "No villians found with the provided IDs."})
+                           "No villains found with the provided IDs."})
 
-    villians_data = [villian.model_dump() for villian in villians]
+    villains_data = [villain.model_dump() for villain in villains]
 
-    return json.dumps(villians_data, indent=2)
+    return json.dumps(villains_data, indent=2)
 
 
 @tool
 def save_comic(hero_ids: List[int],
-               villian_ids: List[int], result: dict[str, str]) -> str:
+               villain_ids: List[int], result: dict[str, str]) -> str:
     """
     Save a comic summary to the database.
 
@@ -265,12 +265,12 @@ def save_comic(hero_ids: List[int],
         str: JSON string with the saved comic ID.
     """
 
-    # print({"hero_ids": hero_ids, "villian_ids": villian_ids,
+    # print({"hero_ids": hero_ids, "villain_ids": villain_ids,
     #        "summary": result.get("summary")})
 
     comic = ComicSummary(
         hero_ids=json.dumps(hero_ids),
-        villian_ids=json.dumps(villian_ids),
+        villain_ids=json.dumps(villain_ids),
         summary=result["summary"]
     )
 
@@ -285,14 +285,14 @@ def save_comic(hero_ids: List[int],
 @celery.task(bind=True)
 def generate_comic_summary(self,
                            hero_ids: List[int],
-                           villian_ids: List[int]) -> str | Any:
+                           villain_ids: List[int]) -> str | Any:
     """
-    Use a LangChain tool-calling agent to fetch hero and villian details
+    Use a LangChain tool-calling agent to fetch hero and villain details
     and generate a comic book plot summary.
 
     Args:
         hero_ids (List[int]): List of hero IDs to include in the comic.
-        villian_ids (List[int]): List of villian IDs to include in the comic.
+        villain_ids (List[int]): List of villain IDs to include in the comic.
 
     Returns:
         CommicSummary: An instance of medel CommicSummary.
@@ -306,20 +306,20 @@ def generate_comic_summary(self,
     Steps (follow strictly in order):
     1. Use the 'find_heroes_details' tool to fetch details of heroes using
     the provided hero IDs.
-    2. Use the 'find_villians_details' tool to fetch details of villains using
+    2. Use the 'find_villains_details' tool to fetch details of villains using
     the provided villain IDs.
     3. Analyze the heroes' and villains' attributes, powers, weaknesses,
     strengths, and descriptions.
     4. Create a cohesive, engaging plot summary where these heroes confront
     the villains in a story. Sometimes, the heroes win,
-    sometimes the villians win.
+    sometimes the villains win.
     Make it 800-1600 words, with a beginning, middle, and end.
     Include conflict, action, betrayal, friendships, and resolution.
     5. Ensure the plot incorporates elements from each hero's and villain's
     profile naturally.
     6. Once the summary is ready, use the 'save_comic' tool to save the
     generated summary, hero IDs, and villain IDs to the database. Pass
-    hero_ids as a list of integers, villian_ids as a list of integers,
+    hero_ids as a list of integers, villain_ids as a list of integers,
     and result as a dict with key "summary" containing the full plot
     summary string.
     7. After the save_comic tool has been called and observed,
@@ -330,13 +330,13 @@ def generate_comic_summary(self,
     Always call tools when instructed.
     """
 
-    tools = [find_heroes_details, find_villians_details, save_comic]
+    tools = [find_heroes_details, find_villains_details, save_comic]
 
     agent = create_agent(llm, tools, system_prompt=prompt)
 
     input_messages = (f"""Generate a comic plot summary for hero IDs:
-        {','.join(map(str, hero_ids))}, and villian IDs:
-        {','.join(map(str, villian_ids))}""")
+        {','.join(map(str, hero_ids))}, and villain IDs:
+        {','.join(map(str, villain_ids))}""")
 
     result = agent.invoke({"messages": [{"role": "user",
                                          "content": input_messages}]})
@@ -384,7 +384,8 @@ def generate_comic_summary(self,
         raise MaxRetriesExceededError(
             "Max retries reached without saving comic")
 
-    logger.info({"summary": summary, "extracted_comic_id": extracted_comic_id})
+    # logger.info({"summary": summary,
+    #              "extracted_comic_id": extracted_comic_id})
 
     if summary and extracted_comic_id:
         payload = {
