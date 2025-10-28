@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import socketio
 from .celery import celery
 from typing import Any, List
 from dotenv import load_dotenv
@@ -9,6 +10,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
+from langchain_core.messages import ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from .models import engine, SuperHero, ComicSummary, SuperVillian
 
@@ -17,8 +19,11 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
-# OUTPUT_DIR = "comics_output"
-# os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_DIR = "comics_output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+redis_manager = socketio.RedisManager(
+    'redis://localhost:6379', write_only=True)
 
 
 def analyze_name_and_create_hero(hero_name: str) -> SuperHero:
@@ -276,7 +281,7 @@ def save_comic(hero_ids: List[int],
 @celery.task(bind=True)
 def generate_comic_summary(self,
                            hero_ids: List[int],
-                           villian_ids: List[int]) -> str:
+                           villian_ids: List[int]) -> str | Any:
     """
     Use a LangChain tool-calling agent to fetch hero and villian details
     and generate a comic book plot summary.
@@ -326,24 +331,45 @@ def generate_comic_summary(self,
     result = agent.invoke({"messages": [{"role": "user",
                                          "content": input_messages}]})
 
+    extracted_comic_id = None
+    summary = None
+
     final_message = result["messages"][-1]
-    if (isinstance(final_message.content, list) and
-            len(final_message.content) > 0 and
-            isinstance(final_message.content[0], dict) and
-            "text" in final_message.content[0]):
-        summary = final_message.content[0]["text"]
+    if isinstance(final_message.content, list) and final_message.content:
+        for item in final_message.content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                summary = item["text"]
+                break
     elif isinstance(final_message.content, str):
         summary = final_message.content
-    else:
-        raise ValueError(
-            f"Unexpected AIMessage content format: {final_message.content}")
 
-    # print(summary)
+    for msg in reversed(result["messages"]):
+        if (isinstance(msg, ToolMessage) and
+                msg.name == "save_comic" and
+                msg.status != "error"):
+            try:
+                comic_data = json.loads(msg.content)  # type: ignore
+                extracted_comic_id = comic_data["comic_id"]
+                break
+            except json.JSONDecodeError:
+                continue  # Skip malformed
 
-    # output_file = os.path.join(OUTPUT_DIR, f"comic_{self.request.id}.py")
+    print({"summary": summary, "extracted_comic_id": extracted_comic_id})
 
-    # with open(output_file, 'w') as f:
-    #     f.write("# Comic book plot summary\n\n")
-    #     f.write(f"plot_summary = {repr(result)}\n")
+    if summary and extracted_comic_id:
+        payload = {
+            "task_id": self.request.id,
+            "status": "success" if extracted_comic_id else "partial_success",
+            "comic_id": extracted_comic_id,
+        }
+
+        redis_manager.emit('comic_generated', payload, room=self.request.id)
+
+    # output generation is for testing only!
+    output_file = os.path.join(OUTPUT_DIR, f"comic_{self.request.id}.py")
+
+    with open(output_file, 'w') as f:
+        f.write("# Comic book plot summary\n\n")
+        f.write(f"plot_summary = {repr(result)}\n")
 
     return summary
