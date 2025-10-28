@@ -2,10 +2,13 @@ import socketio
 from typing import List
 from .socketio import sio
 from .models import engine
-from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import SQLModel, Session, select
+from fastapi.templating import Jinja2Templates
 from .models import SuperHero, ComicSummary, SuperVillian
 from .utils import (
     analyze_name_and_create_hero,
@@ -186,3 +189,12 @@ async def join_task(sid, data):
 @sio.event
 async def disconnect(sid):
     print(f"Client {sid} disconnected")
+
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/", response_class=HTMLResponse)
+def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
