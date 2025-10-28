@@ -1,3 +1,4 @@
+alembic==1.17.0
 amqp==5.3.1
 annotated-doc==0.0.3
 annotated-types==0.7.0
@@ -44,6 +45,7 @@ langgraph-checkpoint==3.0.0
 langgraph-prebuilt==1.0.1
 langgraph-sdk==0.2.9
 langsmith==0.4.38
+Mako==1.3.10
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mccabe==0.7.0
