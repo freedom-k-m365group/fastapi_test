@@ -149,8 +149,8 @@ def create_comic(request: ComicRequest):
         request.hero_ids,
         request.villian_ids)
 
-    # return {"task_id": summary.id}
-    return summary
+    return {"task_id": summary.id}
+    # return summary
 
 
 @app.get("/comics/")
