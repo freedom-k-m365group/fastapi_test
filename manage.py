@@ -50,31 +50,35 @@ def migrate(first_time: bool, revision: str):
         raise click.UsageError(
             "Cannot use --first-time and --revision together.")
 
-    if first_time:
-        click.echo("Generating initial schema migration...")
-        command.revision(
-            cfg,
-            message="initial schema",
-            autogenerate=True,
-            head="head"
-        )
-        click.echo("Applying migrations...")
-        command.upgrade(cfg, "head")
-        click.echo("Initial schema migration complete.")
-    elif revision:
-        click.echo(f"Generating migration: {revision}...")
-        command.revision(
-            cfg,
-            message=revision,
-            autogenerate=True,
-            head="head"
-        )
-        click.echo("Applying migrations...")
-        command.upgrade(cfg, "head")
-        click.echo(f"Migration '{revision}' complete.")
-    else:
-        raise click.UsageError(
-            "Must specify either --first-time or --revision <message>.")
+    try:
+        if first_time:
+            click.echo("Generating initial schema migration...")
+            command.revision(
+                cfg,
+                message="initial schema",
+                autogenerate=True,
+                head="head"
+            )
+            click.echo("Applying migrations...")
+            command.upgrade(cfg, "head")
+            click.echo("Initial schema migration complete.")
+        elif revision:
+            click.echo(f"Generating migration: {revision}...")
+            command.revision(
+                cfg,
+                message=revision,
+                autogenerate=True,
+                head="head"
+            )
+            click.echo("Applying migrations...")
+            command.upgrade(cfg, "head")
+            click.echo(f"Migration '{revision}' complete.")
+        else:
+            raise click.UsageError(
+                "Must specify either --first-time or --revision <message>.")
+    except Exception as e:
+        click.echo(f"Migration failed: {e}", err=True)
+        raise click.Abort()
 
 
 if __name__ == "__main__":
