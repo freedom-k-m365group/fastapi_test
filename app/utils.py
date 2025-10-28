@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import logging
 import socketio
 from .celery import celery
 from typing import Any, List
@@ -11,6 +12,7 @@ from sqlmodel import Session, select
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
 from langchain_core.messages import ToolMessage
+from celery.exceptions import MaxRetriesExceededError
 from langchain_google_genai import ChatGoogleGenerativeAI
 from .models import engine, SuperHero, ComicSummary, SuperVillian
 
@@ -19,8 +21,10 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
 
-OUTPUT_DIR = "comics_output"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# OUTPUT_DIR = "comics_output"
+# os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+logger = logging.getLogger(__name__)
 
 redis_manager = socketio.RedisManager(
     'redis://localhost:6379', write_only=True)
@@ -296,28 +300,34 @@ def generate_comic_summary(self,
 
     prompt = """
     You are a creative comic book writer AI.
-    Your task is to generate an exciting comic book plot summary
-    based on the selected superheroes and supervillains.
+    Your task is to generate an exciting comic book plot summary based on
+    the selected superheroes and supervillains.
 
-    Steps:
+    Steps (follow strictly in order):
     1. Use the 'find_heroes_details' tool to fetch details of heroes using
     the provided hero IDs.
-    2. Use the 'find_vilians_details' tool to fetch details of villains using
+    2. Use the 'find_villians_details' tool to fetch details of villains using
     the provided villain IDs.
     3. Analyze the heroes' and villains' attributes, powers, weaknesses,
     strengths, and descriptions.
     4. Create a cohesive, engaging plot summary where these heroes confront
-    the villains in a story.
-        Make it 800-1600 words, with a beginning, middle, and end.
-        Include conflict, action, betrayal, friendships, and resolution.
+    the villains in a story. Sometimes, the heroes win,
+    sometimes the villians win.
+    Make it 800-1600 words, with a beginning, middle, and end.
+    Include conflict, action, betrayal, friendships, and resolution.
     5. Ensure the plot incorporates elements from each hero's and villain's
     profile naturally.
-    6. Use the 'save_comic' tool to save the generated summary, hero IDs, and
-    villain IDs to the database.
-    7. Return the plot summary as a single string, with no extra explanations
-    or metadata.
+    6. Once the summary is ready, use the 'save_comic' tool to save the
+    generated summary, hero IDs, and villain IDs to the database. Pass
+    hero_ids as a list of integers, villian_ids as a list of integers,
+    and result as a dict with key "summary" containing the full plot
+    summary string.
+    7. After the save_comic tool has been called and observed,
+    return ONLY the plot summary as a single string (no explanations,
+    metadata, or extras).
 
-    NOTE: ONLY RETURN THE PLOT SUMMARY AS A STRING! NOTHING ELSE!
+    NOTE: Do not return the summary until after saving it via the tool.
+    Always call tools when instructed.
     """
 
     tools = [find_heroes_details, find_villians_details, save_comic]
@@ -345,31 +355,50 @@ def generate_comic_summary(self,
 
     for msg in reversed(result["messages"]):
         if (isinstance(msg, ToolMessage) and
-                msg.name == "save_comic" and
-                msg.status != "error"):
+                msg.name == "save_comic"
+                and msg.status != "error"):
+            if not isinstance(msg.content, str):
+                logger.warning(
+                    f"""Skipping non-string ToolMessage content:
+                    {type(msg.content)}""")
+                continue
             try:
-                comic_data = json.loads(msg.content)  # type: ignore
+                comic_data = json.loads(msg.content)
+                if "comic_id" not in comic_data:
+                    raise ValueError("Missing 'comic_id' in tool response")
                 extracted_comic_id = comic_data["comic_id"]
                 break
-            except json.JSONDecodeError:
-                continue  # Skip malformed
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"""JSON decode error in ToolMessage: {e} - Content:
+                    {msg.content}""")
+                continue
+            except ValueError as e:
+                logger.error(f"Validation error in tool response: {e}")
+                continue
 
-    print({"summary": summary, "extracted_comic_id": extracted_comic_id})
+    if not extracted_comic_id and self.request.retries < 3:  # Max 3 retries
+        raise self.retry(exc=ValueError(
+            "Failed to extract comic_id"), countdown=5)
+    elif not extracted_comic_id:
+        raise MaxRetriesExceededError(
+            "Max retries reached without saving comic")
+
+    logger.info({"summary": summary, "extracted_comic_id": extracted_comic_id})
 
     if summary and extracted_comic_id:
         payload = {
             "task_id": self.request.id,
-            "status": "success" if extracted_comic_id else "partial_success",
+            "status": "success",
             "comic_id": extracted_comic_id,
         }
-
         redis_manager.emit('comic_generated', payload, room=self.request.id)
 
     # output generation is for testing only!
-    output_file = os.path.join(OUTPUT_DIR, f"comic_{self.request.id}.py")
+    # output_file = os.path.join(OUTPUT_DIR, f"comic_{self.request.id}.py")
 
-    with open(output_file, 'w') as f:
-        f.write("# Comic book plot summary\n\n")
-        f.write(f"plot_summary = {repr(result)}\n")
+    # with open(output_file, 'w') as f:
+    #     f.write("# Comic book plot summary\n\n")
+    #     f.write(f"plot_summary = {repr(result)}\n")
 
     return summary
