@@ -72,7 +72,7 @@ def analyze_name_and_create_hero(hero_name: str) -> SuperHero:
 
     llm_response = llm.invoke([message])
 
-    print(llm_response.content)
+    # print(llm_response.content)
 
     try:
         attributes = parse_attributes(llm_response.content)
@@ -131,7 +131,7 @@ def analyze_name_and_create_villain(villain_name: str) -> SuperVillain:
 
     llm_response = llm.invoke([message])
 
-    print(llm_response.content)
+    # print(llm_response.content)
 
     try:
         attributes = parse_attributes(llm_response.content)

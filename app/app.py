@@ -53,7 +53,7 @@ async def lifespan(app: FastAPI):
 
     # Startup code: create tables
     SQLModel.metadata.create_all(engine)
-    print("FastAPI + Socket.IO started")
+    # print("FastAPI + Socket.IO started")
     yield
     # Shutdown code (optional)
 
