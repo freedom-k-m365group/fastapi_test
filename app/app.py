@@ -1,13 +1,16 @@
+import os
 import socketio
 from typing import List
 from .socketio import sio
 from .models import engine
+from alembic import command
 from pydantic import BaseModel
+from alembic.config import Config
 from fastapi import FastAPI, Request
+from sqlmodel import Session, select
 from fastapi.responses import HTMLResponse
 from contextlib import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
-from sqlmodel import SQLModel, Session, select
 from fastapi.templating import Jinja2Templates
 from .models import SuperHero, ComicSummary, SuperVillain
 from .utils import (
@@ -15,6 +18,28 @@ from .utils import (
     generate_comic_summary,
     analyze_name_and_create_villain,
 )
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ALEMBIC_INI_PATH = os.path.join(BASE_DIR, "alembic.ini")
+
+
+def _alembic_config() -> Config:
+    """
+    Build an Alembic Config that points to:
+      • the `alembic` folder (migrations)
+      • the correct SQLAlchemy URL (same as engine)
+    """
+
+    if not os.path.exists(ALEMBIC_INI_PATH):
+        raise Exception(
+            f"Alembic config not found at {ALEMBIC_INI_PATH}")
+
+    cfg = Config(ALEMBIC_INI_PATH)
+
+    from app.models import engine
+    cfg.set_main_option("sqlalchemy.url", str(engine.url))
+
+    return cfg
 
 
 class HeroRequest(BaseModel):
@@ -51,9 +76,10 @@ async def lifespan(app: FastAPI):
     In this case, creates database tables on startup.
     """
 
-    # Startup code: create tables
-    SQLModel.metadata.create_all(engine)
-    # print("FastAPI + Socket.IO started")
+    alembic_cfg = _alembic_config()
+    command.upgrade(alembic_cfg, "head")
+
+    # SQLModel.metadata.create_all(engine)
     yield
     # Shutdown code (optional)
 
