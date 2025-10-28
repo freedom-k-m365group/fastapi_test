@@ -256,8 +256,8 @@ def save_comic(hero_ids: List[int],
         str: JSON string with the saved comic ID.
     """
 
-    print({"hero_ids": hero_ids, "villian_ids": villian_ids,
-           "summary": result.get("summary")})
+    # print({"hero_ids": hero_ids, "villian_ids": villian_ids,
+    #        "summary": result.get("summary")})
 
     comic = ComicSummary(
         hero_ids=json.dumps(hero_ids),
