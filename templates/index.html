@@ -20,6 +20,13 @@
           <button type="submit">Create Hero</button>
         </form>
         <div id="hero-status"></div>
+        <div id="heroes-loader" class="loader">
+          <img
+            src="https://media.giphy.com/media/3o7TKSjR6MP6zuTDy8/giphy.gif"
+            alt="Loading heroes"
+          />
+          <p>Loading heroes...</p>
+        </div>
         <ul id="heroes-list"></ul>
       </div>
 
@@ -35,6 +42,13 @@
           <button type="submit">Create Villain</button>
         </form>
         <div id="villain-status"></div>
+        <div id="villains-loader" class="loader">
+          <img
+            src="https://media.giphy.com/media/3o7TKSjR6MP6zuTDy8/giphy.gif"
+            alt="Loading villains"
+          />
+          <p>Loading villains...</p>
+        </div>
         <ul id="villains-list"></ul>
       </div>
 
@@ -43,11 +57,27 @@
         <form id="create-comic-form">
           <label for="hero-ids">Select Heroes:</label>
           <select id="hero-ids" multiple class="multi-select"></select>
-          <label for="villian-ids">Select Villains:</label>
-          <select id="villian-ids" multiple class="multi-select"></select>
+          <label for="villain-ids">Select Villains:</label>
+          <select id="villain-ids" multiple class="multi-select"></select>
           <button type="submit">Generate Comic</button>
         </form>
         <div id="comic-status"></div>
+        <div id="comic-banner" class="banner">
+          <img
+            src="https://media.giphy.com/media/l0HlRnAWXxn0MhKLK/giphy.gif"
+            alt="Generating comic"
+          />
+          <p>
+            Comic is being generated. Task queued... This might take a while.
+          </p>
+        </div>
+        <div id="comics-loader" class="loader">
+          <img
+            src="https://media.giphy.com/media/3o7TKSjR6MP6zuTDy8/giphy.gif"
+            alt="Loading comics"
+          />
+          <p>Loading comics...</p>
+        </div>
         <ul id="comics-list"></ul>
       </div>
     </div>

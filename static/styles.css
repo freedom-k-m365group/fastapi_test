@@ -67,3 +67,44 @@ li {
 .multi-select {
   height: 150px;
 }
+
+.loader {
+  display: none;
+  text-align: center;
+  padding: 10px;
+}
+
+.loader img {
+  width: 100px;
+  height: auto;
+}
+
+.banner {
+  display: none;
+  background-color: #fffacd;
+  padding: 15px;
+  text-align: center;
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.banner img {
+  width: 150px;
+  height: auto;
+}
+
+.expandable .header {
+  cursor: pointer;
+}
+
+.expandable .content {
+  display: none;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-top: 1px solid #ddd;
+}
+
+.expandable.expanded .content {
+  display: block;
+}
