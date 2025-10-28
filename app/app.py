@@ -19,7 +19,8 @@ from .utils import (
     analyze_name_and_create_villain,
 )
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))
 ALEMBIC_INI_PATH = os.path.join(BASE_DIR, "alembic.ini")
 
 
