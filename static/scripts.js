@@ -11,7 +11,7 @@ $(document).ready(function () {
 
   socket.on("comic_generated", function (data) {
     $("#comic-banner").hide();
-    alert("Comic summary has been generated! ID: " + data.comic_id);
+    alert("Comic summary has been generated! Title: " + data.comic_title);
     pending_comic_id = data.comic_id;
     loadComics();
   });
@@ -134,7 +134,7 @@ $(document).ready(function () {
         let fullSummary = comic.summary.replace(/\n/g, "<br>");
         $("#comics-list").append(`
           <li class="expandable" data-id="${comic.id}">
-            <div class="header">Comic ID: ${comic.id} - Summary: ${shortSummary}</div>
+            <div class="header">Comic ID: ${comic.id} - <strong>${comic.summary_title}</strong></div>
             <div class="content">${fullSummary}</div>
           </li>
         `);
