@@ -9,11 +9,12 @@ from dotenv import load_dotenv
 from langchain.tools import tool
 from fastapi import HTTPException
 from sqlmodel import Session, select
+from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
-from langchain_core.messages import ToolMessage
 from celery.exceptions import MaxRetriesExceededError
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents.structured_output import ToolStrategy
 from .models import engine, SuperHero, ComicSummary, SuperVillain
 
 load_dotenv()
@@ -28,6 +29,14 @@ logger = logging.getLogger(__name__)
 
 redis_manager = socketio.RedisManager(
     'redis://localhost:6379', write_only=True)
+
+
+class ComicPlotOutput(BaseModel):
+    """Structured output for the generated comic plot summary."""
+
+    summary: str = Field(
+        description="The full comic book plot summary (800-1600 words)."
+    )
 
 
 def analyze_name_and_create_hero(hero_name: str) -> SuperHero:
@@ -250,42 +259,9 @@ def find_villains_details(villain_ids_str: str) -> str:
     return json.dumps(villains_data, indent=2)
 
 
-@tool
-def save_comic(hero_ids: List[int],
-               villain_ids: List[int], result: dict[str, str]) -> str:
-    """
-    Save a comic summary to the database.
-
-    Args:
-        hero_ids (List[int]): List of hero IDs.
-        villain_ids (List[int]): List of villain IDs.
-        summary (str): The comic plot summary.
-
-    Returns:
-        str: JSON string with the saved comic ID.
-    """
-
-    # print({"hero_ids": hero_ids, "villain_ids": villain_ids,
-    #        "summary": result.get("summary")})
-
-    comic = ComicSummary(
-        hero_ids=json.dumps(hero_ids),
-        villain_ids=json.dumps(villain_ids),
-        summary=result["summary"]
-    )
-
-    with Session(engine) as session:
-        session.add(comic)
-        session.commit()
-        session.refresh(comic)
-
-    return json.dumps({"comic_id": comic.id})
-
-
 @celery.task(bind=True)
-def generate_comic_summary(self,
-                           hero_ids: List[int],
-                           villain_ids: List[int]) -> str | Any:
+def generate_comic_summary(self, hero_ids: List[int],
+                           villain_ids: List[int]) -> str:
     """
     Use a LangChain tool-calling agent to fetch hero and villain details
     and generate a comic book plot summary.
@@ -295,99 +271,95 @@ def generate_comic_summary(self,
         villain_ids (List[int]): List of villain IDs to include in the comic.
 
     Returns:
-        CommicSummary: An instance of medel CommicSummary.
+        str: The generated plot summary (for Celery result).
     """
 
     prompt = """
-    You are a creative comic book writer AI.
-    Your task is to generate an exciting comic book plot summary based on
-    the selected superheroes and supervillains.
+    You are a creative comic book writer AI. Your task is to generate an
+    exciting, dramatic comic book plot summary based on the selected
+    superheroes and supervillains.
 
-    Steps (follow strictly in order):
-    1. Use the 'find_heroes_details' tool to fetch details of heroes using
-    the provided hero IDs.
-    2. Use the 'find_villains_details' tool to fetch details of villains using
-    the provided villain IDs.
-    3. Analyze the heroes' and villains' attributes, powers, weaknesses,
-    strengths, and descriptions.
-    4. Create a cohesive, engaging plot summary where these heroes confront
-    the villains in a story. Sometimes, the heroes win,
-    sometimes the villains win.
-    Make it 800-1600 words, with a beginning, middle, and end.
-    Include conflict, action, betrayal, friendships, and resolution.
-    5. Ensure the plot incorporates elements from each hero's and villain's
-    profile naturally.
-    6. Once the summary is ready, use the 'save_comic' tool to save the
-    generated summary, hero IDs, and villain IDs to the database. Pass
-    hero_ids as a list of integers, villain_ids as a list of integers,
-    and result as a dict with key "summary" containing the full plot
-    summary string.
-    7. After the save_comic tool has been called and observed,
-    return ONLY the plot summary as a single string (no explanations,
-    metadata, or extras).
+    ### STRICT INSTRUCTIONS (FOLLOW EXACTLY):
 
-    NOTE: Do not return the summary until after saving it via the tool.
-    Always call tools when instructed.
+    1. **FIRST**: Call the `find_heroes_details` tool with the provided hero
+    IDs to get full hero profiles.
+
+    2. **SECOND**: Call the `find_villains_details` tool with the provided
+    villain IDs to get full villain profiles.
+
+    3. **DO NOT** assume or invent any hero/villain details. Use **only** the
+    data returned from the tools.
+
+    4. **THEN**: Analyze all fetched profiles to determine:
+    - **Average Power Level** = (strength + speed + durability + intelligence)
+    / 4 per character
+    - **Team Power** = average of all heroes vs. average of all villains
+    - **Strategic Matchups**: How powers, strengths, and weaknesses interact
+    (e.g., fire vs. ice, tech vs. magic)
+
+    5. **DECIDE WINNER**:
+    - Heroes win if: higher team power + better synergy + exploiting villain
+    weaknesses
+    - Villains win if: significantly higher team power + better synergy +
+    exploiting heroe weaknesses OR major hero betrayal
+    - But: **Good ultimately triumphs in spirit** — even if villains win a
+    battle, heroes show resilience, hope, or set up future victory
+
+    6. **WRITE THE PLOT**:
+    - 800–1600 words
+    - Structure: **Beginning** (setup, stakes), **Middle** (conflict, action,
+    betrayal), **End** (climax, resolution)
+    - Include: action, hope/despair, friendship/family bonds, moral struggle,
+    dramatic twists
+    - Naturally weave in **every** hero and villain’s powers, personality, and
+    backstory.
+
+    7. **FINAL OUTPUT**:
+    - Return **ONLY** the structured response using the `ComicPlotOutput`
+    schema.
+    - Format: `{"summary": "<your full 800–1600 words story here>"}`
+    - **NO explanations, no tool results, no metadata, no extra text.**
     """
 
-    tools = [find_heroes_details, find_villains_details, save_comic]
+    tools = [find_heroes_details, find_villains_details]
 
-    agent = create_agent(llm, tools, system_prompt=prompt)
+    agent = create_agent(
+        llm,
+        tools,
+        system_prompt=prompt,
+        response_format=ToolStrategy(
+            ComicPlotOutput,
+            handle_errors=True
+        )
+    )
 
     input_messages = (f"""Generate a comic plot summary for hero IDs:
         {','.join(map(str, hero_ids))}, and villain IDs:
         {','.join(map(str, villain_ids))}""")
 
-    result = agent.invoke({"messages": [{"role": "user",
-                                         "content": input_messages}]})
+    try:
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": input_messages}]})
 
-    extracted_comic_id = None
-    summary = None
+        structured_response = result.get("structured_response")
+        if not structured_response:
+            raise ValueError("No structured response generated by agent")
 
-    final_message = result["messages"][-1]
-    if isinstance(final_message.content, list) and final_message.content:
-        for item in final_message.content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                summary = item["text"]
-                break
-    elif isinstance(final_message.content, str):
-        summary = final_message.content
+        summary = structured_response.summary
 
-    for msg in reversed(result["messages"]):
-        if (isinstance(msg, ToolMessage) and
-                msg.name == "save_comic"
-                and msg.status != "error"):
-            if not isinstance(msg.content, str):
-                logger.warning(
-                    f"""Skipping non-string ToolMessage content:
-                    {type(msg.content)}""")
-                continue
-            try:
-                comic_data = json.loads(msg.content)
-                if "comic_id" not in comic_data:
-                    raise ValueError("Missing 'comic_id' in tool response")
-                extracted_comic_id = comic_data["comic_id"]
-                break
-            except json.JSONDecodeError as e:
-                logger.error(
-                    f"""JSON decode error in ToolMessage: {e} - Content:
-                    {msg.content}""")
-                continue
-            except ValueError as e:
-                logger.error(f"Validation error in tool response: {e}")
-                continue
+        comic = ComicSummary(
+            hero_ids=json.dumps(hero_ids),
+            villain_ids=json.dumps(villain_ids),
+            summary=summary
+        )
 
-    if not extracted_comic_id and self.request.retries < 3:  # Max 3 retries
-        raise self.retry(exc=ValueError(
-            "Failed to extract comic_id"), countdown=5)
-    elif not extracted_comic_id:
-        raise MaxRetriesExceededError(
-            "Max retries reached without saving comic")
+        with Session(engine) as session:
+            session.add(comic)
+            session.commit()
+            session.refresh(comic)
 
-    # logger.info({"summary": summary,
-    #              "extracted_comic_id": extracted_comic_id})
+        extracted_comic_id = comic.id
 
-    if summary and extracted_comic_id:
         payload = {
             "task_id": self.request.id,
             "status": "success",
@@ -395,11 +367,11 @@ def generate_comic_summary(self,
         }
         redis_manager.emit('comic_generated', payload, room=self.request.id)
 
-    # output generation is for testing only!
-    # output_file = os.path.join(OUTPUT_DIR, f"comic_{self.request.id}.py")
+        return summary
 
-    # with open(output_file, 'w') as f:
-    #     f.write("# Comic book plot summary\n\n")
-    #     f.write(f"plot_summary = {repr(result)}\n")
-
-    return summary
+    except Exception as e:
+        logger.error(f"Error in comic generation: {str(e)}")
+        if self.request.retries < 3:
+            raise self.retry(exc=e, countdown=5)
+        else:
+            raise MaxRetriesExceededError("Max retries reached")
